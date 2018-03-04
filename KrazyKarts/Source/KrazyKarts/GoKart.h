@@ -27,11 +27,37 @@ protected:
 	virtual void BeginPlay() override;
 
 private:
+	//Mass of the car [kg]
+	UPROPERTY(EditAnywhere)
+	float Mass = 1000; 
+
+	//Affects the magnitude of air resistance [kg/m]
+	UPROPERTY(EditAnywhere)
+	float AirDragCoefficient = 16.f;
+
+	//Maximum driving force in [N]
+	UPROPERTY(EditAnywhere)
+	float MaxThrottle = 10000; 
+
+	// Maximum degrees the kart can rotate per second [degrees/s]
+	UPROPERTY(EditAnywhere)
+	float MaxDegreesPerSecond = 70.f;
+
+	float Throttle = 0;
 
 	float MaxSpeed = 20.f;
 
+	float SteeringThrow = 0.f;
+
 	FVector Velocity = FVector(0.f, 0.f, 0.f);
 
-	void SetVelocity(float AxisInValue);
+	void MoveForward(float AxisInValue);
+
+	void MoveRight(float AxisInValue);
+
+	void UpdateLocationFromVelocity(float DeltaTime);
+
+	void ApplyRotation(float DeltaTime);
 	
+	FVector GetResistance();
 };
