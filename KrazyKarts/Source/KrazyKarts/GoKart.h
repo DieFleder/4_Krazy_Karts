@@ -59,6 +59,12 @@ private:
 
 	void MoveRight(float AxisInValue);
 
+	UFUNCTION(Server, Reliable, WithValidation)
+	void Server_MoveForward(float AxisInValue);
+
+	UFUNCTION(Server, Reliable, WithValidation)
+	void Server_MoveRight(float AxisInValue);
+
 	void UpdateLocationFromVelocity(float DeltaTime);
 
 	void ApplyRotation(float DeltaTime);

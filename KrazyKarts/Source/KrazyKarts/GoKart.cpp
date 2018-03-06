@@ -4,7 +4,7 @@
 #include "Components/InputComponent.h"
 
 #include "Engine/World.h"
-
+#include "DrawDebugHelpers.h"
 
 // Sets default values
 AGoKart::AGoKart()
@@ -19,6 +19,23 @@ void AGoKart::BeginPlay()
 {
 	Super::BeginPlay();
 	
+}
+
+FString GetEnumText(ENetRole Role)
+{
+	switch (Role)
+	{
+	case ROLE_None:
+		return "None";
+	case ROLE_SimulatedProxy:
+		return "SimulatedProxy";
+	case ROLE_AutonomousProxy:
+		return "AutonomousProxy";
+	case ROLE_Authority:
+		return "Authority";
+	default:
+		return "Other";
+	}
 }
 
 // Called every frame
@@ -36,6 +53,8 @@ void AGoKart::Tick(float DeltaTime)
 
 	ApplyRotation(DeltaTime);
 	UpdateLocationFromVelocity(DeltaTime);
+
+	DrawDebugString(GetWorld(), FVector(0, 0, 100), GetEnumText(Role), this, FColor::White, DeltaTime);
 }
 
 void AGoKart::ApplyRotation(float DeltaTime)
@@ -75,11 +94,33 @@ void AGoKart::SetupPlayerInputComponent(UInputComponent* PlayerInputComponent)
 void AGoKart::MoveForward(float AxisInValue)
 {
 	Throttle = AxisInValue * MaxThrottle;
+	Server_MoveForward_Implementation(AxisInValue);
 }
 
 void AGoKart::MoveRight(float AxisInValue)
 {
 	SteeringThrow = AxisInValue;
+	Server_MoveRight_Implementation(AxisInValue);
+}
+
+void AGoKart::Server_MoveForward_Implementation(float AxisInValue)
+{
+	Throttle = AxisInValue * MaxThrottle;
+}
+
+bool AGoKart::Server_MoveForward_Validate(float AxisInValue)
+{
+	return FMath::Abs(AxisInValue) <= 1;
+}
+
+void AGoKart::Server_MoveRight_Implementation(float AxisInValue)
+{
+	SteeringThrow = AxisInValue;
+}
+
+bool AGoKart::Server_MoveRight_Validate(float AxisInValue)
+{
+	return FMath::Abs(AxisInValue) <= 1;
 }
 
 FVector AGoKart::GetAirResistance()
