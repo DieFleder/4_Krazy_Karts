@@ -35,15 +35,19 @@ private:
 	UPROPERTY(EditAnywhere)
 	float AirDragCoefficient = 16.f;
 
+	//Affects the magnitude of rolling friction
+	UPROPERTY(EditAnywhere)
+	float RollingFrictionCoefficient = 0.045;
+
 	//Maximum driving force in [N]
 	UPROPERTY(EditAnywhere)
 	float MaxThrottle = 10000; 
 
-	// Maximum degrees the kart can rotate per second [degrees/s]
+	// Higher Value means less handling [meters]
 	UPROPERTY(EditAnywhere)
-	float MaxDegreesPerSecond = 70.f;
+	float TurnRadius = 0.07f;
 
-	float Throttle = 0;
+	float Throttle = 0.f;
 
 	float MaxSpeed = 20.f;
 
@@ -59,5 +63,7 @@ private:
 
 	void ApplyRotation(float DeltaTime);
 	
-	FVector GetResistance();
+	FVector GetAirResistance();
+
+	FVector GetRollingResistance();
 };

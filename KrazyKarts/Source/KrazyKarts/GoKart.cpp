@@ -3,6 +3,8 @@
 #include "GoKart.h"
 #include "Components/InputComponent.h"
 
+#include "Engine/World.h"
+
 
 // Sets default values
 AGoKart::AGoKart()
@@ -25,9 +27,11 @@ void AGoKart::Tick(float DeltaTime)
 	Super::Tick(DeltaTime);
 
 	FVector Force = GetActorForwardVector() * Throttle;
-	Force += GetResistance();
+	Force += GetAirResistance() + GetRollingResistance();
+
 	FVector Acceleration = Force / Mass;
 
+	FVector InitialVelocity = Velocity;
 	Velocity = Velocity + Acceleration * DeltaTime; // incriment velocity
 
 	ApplyRotation(DeltaTime);
@@ -36,11 +40,14 @@ void AGoKart::Tick(float DeltaTime)
 
 void AGoKart::ApplyRotation(float DeltaTime)
 {
-	float RotationAngle = MaxDegreesPerSecond * DeltaTime * SteeringThrow;
-	FQuat RotationDelta(GetActorUpVector(), FMath::DegreesToRadians(RotationAngle));
-	AddActorWorldRotation(RotationDelta);
+	//float RotationAngle = MaxDegreesPerSecond * DeltaTime * SteeringThrow;
+	//FQuat RotationDelta(GetActorUpVector(), FMath::DegreesToRadians(RotationAngle));
+	float DeltaLocation = FVector::DotProduct(Velocity, GetActorForwardVector()) * DeltaTime;
+	float RotationAngle = DeltaLocation * SteeringThrow / (TurnRadius * 100);
+	FQuat RotationDelta(GetActorUpVector(), RotationAngle);
 
 	Velocity = RotationDelta.RotateVector(Velocity);
+	AddActorWorldRotation(RotationDelta);
 }
 
 void AGoKart::UpdateLocationFromVelocity(float DeltaTime)
@@ -75,7 +82,18 @@ void AGoKart::MoveRight(float AxisInValue)
 	SteeringThrow = AxisInValue;
 }
 
-FVector AGoKart::GetResistance()
+FVector AGoKart::GetAirResistance()
 {
 	return -Velocity.GetSafeNormal() * Velocity.SizeSquared() * AirDragCoefficient;
+}
+
+FVector AGoKart::GetRollingResistance()
+{
+	float AccelerationDueToGravity = GetWorld()->GetGravityZ() / 100;
+
+	/*
+	 *AccelerationDueToGravity is a negative number with UE4 defaults.
+	 *Therefore, no need to multiply the return value by -1
+	 */
+	return Velocity.GetSafeNormal() * Mass * AccelerationDueToGravity * RollingFrictionCoefficient; //
 }
