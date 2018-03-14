@@ -55,6 +55,12 @@ private:
 
 	FVector Velocity = FVector(0.f, 0.f, 0.f);
 
+	UPROPERTY(Replicated)
+	FVector ReplicatedLocation;
+
+	UPROPERTY(Replicated)
+	FRotator ReplicatedRotation;
+
 	void MoveForward(float AxisInValue);
 
 	void MoveRight(float AxisInValue);
