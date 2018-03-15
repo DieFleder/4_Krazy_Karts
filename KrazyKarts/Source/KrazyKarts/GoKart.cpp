@@ -20,14 +20,21 @@ AGoKart::AGoKart()
 void AGoKart::BeginPlay()
 {
 	Super::BeginPlay();
+
+	if (HasAuthority())
+	{
+		NetUpdateFrequency = 1;
+	}
 	
 }
 
 void AGoKart::GetLifetimeReplicatedProps(TArray< FLifetimeProperty > & OutLifetimeProps) const
 {
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
-	DOREPLIFETIME(AGoKart, ReplicatedLocation);
-	DOREPLIFETIME(AGoKart, ReplicatedRotation);
+	DOREPLIFETIME(AGoKart, ReplicatedTransform);
+	DOREPLIFETIME(AGoKart, Velocity);
+	DOREPLIFETIME(AGoKart, Throttle);
+	DOREPLIFETIME(AGoKart, SteeringThrow);
 }
 
 FString GetEnumText(ENetRole Role)
@@ -60,45 +67,42 @@ void AGoKart::Tick(float DeltaTime)
 	FVector InitialVelocity = Velocity;
 	Velocity = Velocity + Acceleration * DeltaTime; // incriment velocity
 
-	ApplyRotation(DeltaTime);
-	UpdateLocationFromVelocity(DeltaTime);
+	UpdateTransform(DeltaTime);
 
 	if (HasAuthority())
 	{
-		ReplicatedLocation = GetActorLocation();
-		ReplicatedRotation = GetActorRotation();
-	}
-	else
-	{
-		SetActorLocation(ReplicatedLocation);
-		SetActorRotation(ReplicatedRotation);
+		ReplicatedTransform = GetActorTransform();
 	}
 
 	DrawDebugString(GetWorld(), FVector(0, 0, 100), GetEnumText(Role), this, FColor::White, DeltaTime);
 }
 
-void AGoKart::ApplyRotation(float DeltaTime)
+void AGoKart::OnRep_ReplicatedTransform()
 {
-	//float RotationAngle = MaxDegreesPerSecond * DeltaTime * SteeringThrow;
-	//FQuat RotationDelta(GetActorUpVector(), FMath::DegreesToRadians(RotationAngle));
+		SetActorTransform(ReplicatedTransform);
+}
+
+void AGoKart::UpdateTransform(float DeltaTime)
+{
+	/* Calculate the change in rotation */
 	float DeltaLocation = FVector::DotProduct(Velocity, GetActorForwardVector()) * DeltaTime;
 	float RotationAngle = DeltaLocation * SteeringThrow / (TurnRadius * 100);
 	FQuat RotationDelta(GetActorUpVector(), RotationAngle);
 
 	Velocity = RotationDelta.RotateVector(Velocity);
-	AddActorWorldRotation(RotationDelta);
-}
 
-void AGoKart::UpdateLocationFromVelocity(float DeltaTime)
-{
-	FVector Translation = Velocity * 100 * DeltaTime; // multiply by 100 to convert from cm to meters
+	/* Calculate the change in location */
+	FVector TranslationDelta = Velocity * 100 * DeltaTime; // multiply by 100 to convert from cm to meters
+
+	/*Apply the change to the transform*/
+	FTransform DeltaTransform = FTransform(RotationDelta, TranslationDelta);
 
 	FHitResult HitResult;
-	AddActorWorldOffset(Translation, true, &HitResult);
+	AddActorWorldTransform(DeltaTransform, true, &HitResult);
 
 	if (HitResult.IsValidBlockingHit())
 	{
-			Velocity = Velocity * 0.f; // stop the kart if it hits something
+		Velocity = Velocity * 0.f; // stop the kart if it hits something
 	}
 }
 
@@ -114,13 +118,13 @@ void AGoKart::SetupPlayerInputComponent(UInputComponent* PlayerInputComponent)
 void AGoKart::MoveForward(float AxisInValue)
 {
 	Throttle = AxisInValue * MaxThrottle;
-	Server_MoveForward_Implementation(AxisInValue);
+	Server_MoveForward(AxisInValue);
 }
 
 void AGoKart::MoveRight(float AxisInValue)
 {
 	SteeringThrow = AxisInValue;
-	Server_MoveRight_Implementation(AxisInValue);
+	Server_MoveRight(AxisInValue);
 }
 
 void AGoKart::Server_MoveForward_Implementation(float AxisInValue)

@@ -47,19 +47,22 @@ private:
 	UPROPERTY(EditAnywhere)
 	float TurnRadius = 0.07f;
 
-	float Throttle = 0.f;
-
 	float MaxSpeed = 20.f;
 
+	UPROPERTY(Replicated)
+	float Throttle = 0.f;
+
+	UPROPERTY(Replicated)
 	float SteeringThrow = 0.f;
 
-	FVector Velocity = FVector(0.f, 0.f, 0.f);
-
 	UPROPERTY(Replicated)
-	FVector ReplicatedLocation;
+	FVector Velocity;
 
-	UPROPERTY(Replicated)
-	FRotator ReplicatedRotation;
+	UPROPERTY(ReplicatedUsing = OnRep_ReplicatedTransform)
+	FTransform ReplicatedTransform;
+
+	UFUNCTION()
+	void OnRep_ReplicatedTransform();
 
 	void MoveForward(float AxisInValue);
 
@@ -71,9 +74,7 @@ private:
 	UFUNCTION(Server, Reliable, WithValidation)
 	void Server_MoveRight(float AxisInValue);
 
-	void UpdateLocationFromVelocity(float DeltaTime);
-
-	void ApplyRotation(float DeltaTime);
+	void UpdateTransform(float DeltaTime);
 	
 	FVector GetAirResistance();
 
