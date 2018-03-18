@@ -3,7 +3,6 @@
 #include "GoKartMovementComponent.h"
 
 
-
 // Sets default values for this component's properties
 UGoKartMovementComponent::UGoKartMovementComponent()
 {
@@ -30,20 +29,27 @@ void UGoKartMovementComponent::TickComponent(float DeltaTime, ELevelTick TickTyp
 {
 	Super::TickComponent(DeltaTime, TickType, ThisTickFunction);
 
-	// ...
+	if (GetOwnerRole() == ROLE_AutonomousProxy || GetOwner()->GetRemoteRole() == ROLE_SimulatedProxy)
+	{
+		LastMove = CreateMove(DeltaTime);
+		SimulateMove(LastMove);
+	}
 }
 
 void UGoKartMovementComponent::SimulateMove(const FGoKartMove& Move)
 {
-	FVector Force = GetOwner()->GetActorForwardVector() * Move.Throttle;
-	Force += GetAirResistance() + GetRollingResistance();
+	FVector Force = GetOwner()->GetActorForwardVector() * MaxDrivingForce * Move.Throttle;
+
+	Force += GetAirResistance();
+	Force += GetRollingResistance();
 
 	FVector Acceleration = Force / Mass;
 
-	FVector InitialVelocity = Velocity;
-	Velocity = Velocity + Acceleration * Move.DeltaTime; // incriment velocity
+	Velocity = Velocity + Acceleration * Move.DeltaTime;
 
-	UpdateTransform(Move);
+	ApplyRotation(Move.DeltaTime, Move.SteeringThrow);
+
+	UpdateLocationFromVelocity(Move.DeltaTime);
 }
 
 FGoKartMove UGoKartMovementComponent::CreateMove(float DeltaTime)
@@ -52,81 +58,44 @@ FGoKartMove UGoKartMovementComponent::CreateMove(float DeltaTime)
 	Move.DeltaTime = DeltaTime;
 	Move.SteeringThrow = SteeringThrow;
 	Move.Throttle = Throttle;
-	Move.Time = FPlatformTime::Seconds();
+	Move.Time = GetWorld()->TimeSeconds;
+
 	return Move;
-}
-
-void UGoKartMovementComponent::UpdateTransform(FGoKartMove Move)
-{
-	/* Calculate the change in rotation */
-	float DeltaLocation = FVector::DotProduct(Velocity, GetOwner()->GetActorForwardVector()) * Move.DeltaTime;
-	float RotationAngle = DeltaLocation * Move.SteeringThrow / (TurnRadius * 100);
-	FQuat RotationDelta(GetOwner()->GetActorUpVector(), RotationAngle);
-
-	Velocity = RotationDelta.RotateVector(Velocity);
-
-	/* Calculate the change in location */
-	FVector TranslationDelta = Velocity * 100 * Move.DeltaTime; // multiply by 100 to convert from cm to meters
-
-																/*Apply the change to the transform*/
-	FTransform DeltaTransform = FTransform(RotationDelta, TranslationDelta);
-
-	FHitResult HitResult;
-	GetOwner()->AddActorWorldTransform(DeltaTransform, true, &HitResult);
-
-	if (HitResult.IsValidBlockingHit())
-	{
-		Velocity = Velocity * 0.f; // stop the kart if it hits something
-	}
 }
 
 FVector UGoKartMovementComponent::GetAirResistance()
 {
-	return -Velocity.GetSafeNormal() * Velocity.SizeSquared() * AirDragCoefficient;
+	return -Velocity.GetSafeNormal() * Velocity.SizeSquared() * DragCoefficient;
 }
 
 FVector UGoKartMovementComponent::GetRollingResistance()
 {
-	float AccelerationDueToGravity = GetWorld()->GetGravityZ() / 100;
-
-	/*
-	*AccelerationDueToGravity is a negative number with UE4 defaults.
-	*Therefore, no need to multiply the return value by -1
-	*/
-	return Velocity.GetSafeNormal() * Mass * AccelerationDueToGravity * RollingFrictionCoefficient; //
+	float AccelerationDueToGravity = -GetWorld()->GetGravityZ() / 100;
+	float NormalForce = Mass * AccelerationDueToGravity;
+	return -Velocity.GetSafeNormal() * RollingResistanceCoefficient * NormalForce;
 }
 
-FVector UGoKartMovementComponent::GetVelocity()
+
+void UGoKartMovementComponent::ApplyRotation(float DeltaTime, float SteeringThrow)
 {
-	return Velocity;
+	float DeltaLocation = FVector::DotProduct(GetOwner()->GetActorForwardVector(), Velocity) * DeltaTime;
+	float RotationAngle = DeltaLocation / MinTurningRadius * SteeringThrow;
+	FQuat RotationDelta(GetOwner()->GetActorUpVector(), RotationAngle);
+
+	Velocity = RotationDelta.RotateVector(Velocity);
+
+	GetOwner()->AddActorWorldRotation(RotationDelta);
 }
 
-float UGoKartMovementComponent::GetMaxThrottle()
+void UGoKartMovementComponent::UpdateLocationFromVelocity(float DeltaTime)
 {
-	return MaxThrottle;
+	FVector Translation = Velocity * 100 * DeltaTime;
+
+	FHitResult Hit;
+	GetOwner()->AddActorWorldOffset(Translation, true, &Hit);
+	if (Hit.IsValidBlockingHit())
+	{
+		Velocity = FVector::ZeroVector;
+	}
 }
 
-void UGoKartMovementComponent::SetVelocity(FVector VelocityIn)
-{
-	Velocity = VelocityIn;
-}
-
-float UGoKartMovementComponent::GetThrottle()
-{
-	return Throttle;
-}
-
-void UGoKartMovementComponent::SetThrottle(float ThrottleIn)
-{
-	Throttle = ThrottleIn;
-}
-
-float UGoKartMovementComponent::GetSteeringThrow()
-{
-	return SteeringThrow;
-}
-
-void UGoKartMovementComponent::SetSteeringThrow(float SteeringThrowIn)
-{
-	SteeringThrow = SteeringThrowIn;
-}
